@@ -43,7 +43,7 @@
 
 #include "rtp.h"
 
-pa_rtp_context* pa_rtp_context_init_send(pa_rtp_context *c, int fd, uint32_t ssrc, uint8_t payload, size_t frame_size) {
+bool pa_rtp_context_init_send(pa_rtp_context *c, int fd, uint32_t ssrc, uint8_t payload, size_t frame_size) {
     pa_assert(c);
     pa_assert(fd >= 0);
 
@@ -56,7 +56,7 @@ pa_rtp_context* pa_rtp_context_init_send(pa_rtp_context *c, int fd, uint32_t ssr
 
     pa_memchunk_reset(&c->memchunk);
 
-    return c;
+    return true;
 }
 
 #define MAX_IOVECS 16
