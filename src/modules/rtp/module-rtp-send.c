@@ -489,7 +489,7 @@ int pa__init(pa_module*m) {
 
     pa_xfree(n);
 
-    if (!pa_rtp_context_init_send(&u->rtp_context, fd, m->core->cookie, payload, pa_frame_size(&ss)))
+    if (!pa_rtp_context_init_send(&u->rtp_context, fd, payload, pa_frame_size(&ss)))
         goto fail;
     pa_sap_context_init_send(&u->sap_context, sap_fd, p);
 
