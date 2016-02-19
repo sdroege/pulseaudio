@@ -40,12 +40,28 @@
 #include <pulsecore/macro.h>
 #include <pulsecore/core-util.h>
 #include <pulsecore/arpa-inet.h>
+#include <pulsecore/poll.h>
 
 #include "rtp.h"
 
-bool pa_rtp_context_init_send(pa_rtp_context *c, int fd, uint8_t payload, size_t mtu, size_t frame_size) {
-    pa_assert(c);
+typedef struct pa_rtp_context {
+    int fd;
+    uint16_t sequence;
+    uint32_t timestamp;
+    uint32_t ssrc;
+    uint8_t payload;
+    size_t frame_size;
+    size_t mtu;
+
+    pa_memchunk memchunk;
+} pa_rtp_context;
+
+pa_rtp_context* pa_rtp_context_new_send(int fd, uint8_t payload, size_t mtu, size_t frame_size) {
+    pa_rtp_context *c;
+
     pa_assert(fd >= 0);
+
+    c = pa_xnew0(pa_rtp_context, 1);
 
     c->fd = fd;
     c->sequence = (uint16_t) (rand()*rand());
@@ -57,7 +73,7 @@ bool pa_rtp_context_init_send(pa_rtp_context *c, int fd, uint8_t payload, size_t
 
     pa_memchunk_reset(&c->memchunk);
 
-    return true;
+    return c;
 }
 
 #define MAX_IOVECS 16
@@ -149,22 +165,28 @@ int pa_rtp_send(pa_rtp_context *c, pa_memblockq *q) {
     return 0;
 }
 
-pa_rtp_context* pa_rtp_context_init_recv(pa_rtp_context *c, int fd, size_t frame_size) {
-    pa_assert(c);
+pa_rtp_context* pa_rtp_context_new_recv(int fd, uint8_t payload, size_t frame_size) {
+    pa_rtp_context *c;
+
+    c = pa_xnew0(pa_rtp_context, 1);
 
     c->fd = fd;
+    c->payload = payload;
     c->frame_size = frame_size;
 
     pa_memchunk_reset(&c->memchunk);
+
     return c;
 }
 
-int pa_rtp_recv(pa_rtp_context *c, pa_memchunk *chunk, pa_mempool *pool, struct timeval *tstamp) {
+int pa_rtp_recv(pa_rtp_context *c, pa_memchunk *chunk, pa_mempool *pool, uint32_t *rtp_tstamp, struct timeval *tstamp) {
     int size;
     struct msghdr m;
     struct cmsghdr *cm;
     struct iovec iov;
     uint32_t header;
+    uint32_t ssrc;
+    uint8_t payload;
     unsigned cc;
     ssize_t r;
     uint8_t aux[1024];
@@ -249,12 +271,12 @@ int pa_rtp_recv(pa_rtp_context *c, pa_memchunk *chunk, pa_mempool *pool, struct 
     }
 
     memcpy(&header, iov.iov_base, sizeof(uint32_t));
-    memcpy(&c->timestamp, (uint8_t*) iov.iov_base + 4, sizeof(uint32_t));
-    memcpy(&c->ssrc, (uint8_t*) iov.iov_base + 8, sizeof(uint32_t));
+    memcpy(rtp_tstamp, (uint8_t*) iov.iov_base + 4, sizeof(uint32_t));
+    memcpy(&ssrc, (uint8_t*) iov.iov_base + 8, sizeof(uint32_t));
 
     header = ntohl(header);
-    c->timestamp = ntohl(c->timestamp);
-    c->ssrc = ntohl(c->ssrc);
+    *rtp_tstamp = ntohl(*rtp_tstamp);
+    ssrc = ntohl(c->ssrc);
 
     if ((header >> 30) != 2) {
         pa_log_warn("Unsupported RTP version.");
@@ -271,9 +293,19 @@ int pa_rtp_recv(pa_rtp_context *c, pa_memchunk *chunk, pa_mempool *pool, struct 
         goto fail;
     }
 
+    if (ssrc != c->ssrc) {
+        pa_log_debug("Got unexpected SSRC");
+        goto fail;
+    }
+
     cc = (header >> 24) & 0xF;
-    c->payload = (uint8_t) ((header >> 16) & 127U);
+    payload = (uint8_t) ((header >> 16) & 127U);
     c->sequence = (uint16_t) (header & 0xFFFFU);
+
+    if (payload != c->payload) {
+        pa_log_debug("Got unexpected payload: %u", payload);
+        goto fail;
+    }
 
     if (12 + cc*4 > (unsigned) size) {
         pa_log_warn("RTP packet too short. (CSRC)");
@@ -377,6 +409,8 @@ void pa_rtp_context_destroy(pa_rtp_context *c) {
 
     if (c->memchunk.memblock)
         pa_memblock_unref(c->memchunk.memblock);
+
+    pa_xfree(c);
 }
 
 const char* pa_rtp_format_to_string(pa_sample_format_t f) {
@@ -395,4 +429,22 @@ pa_sample_format_t pa_rtp_string_to_format(const char *s) {
         return PA_SAMPLE_S16BE;
     else
         return PA_SAMPLE_INVALID;
+}
+
+size_t pa_rtp_context_get_frame_size(pa_rtp_context *c) {
+    return c->frame_size;
+}
+
+pa_rtpoll_item* pa_rtp_context_get_rtpoll_item(pa_rtp_context *c, pa_rtpoll *rtpoll) {
+    pa_rtpoll_item *item;
+    struct pollfd *p;
+
+    item = pa_rtpoll_item_new(rtpoll, PA_RTPOLL_LATE, 1);
+
+    p = pa_rtpoll_item_get_pollfd(item, NULL);
+    p->fd = c->fd;
+    p->events = POLLIN;
+    p->revents = 0;
+
+    return item;
 }
