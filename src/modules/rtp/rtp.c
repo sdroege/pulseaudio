@@ -256,7 +256,6 @@ int pa_rtp_recv(pa_rtp_context *c, pa_memchunk *chunk, pa_mempool *pool, uint32_
     m.msg_flags = 0;
 
     r = recvmsg(c->fd, &m, 0);
-    pa_memblock_release(chunk->memblock);
 
     if (r != size) {
         if (r < 0 && errno != EAGAIN && errno != EINTR)
@@ -273,6 +272,8 @@ int pa_rtp_recv(pa_rtp_context *c, pa_memchunk *chunk, pa_mempool *pool, uint32_
     memcpy(&header, iov.iov_base, sizeof(uint32_t));
     memcpy(rtp_tstamp, (uint8_t*) iov.iov_base + 4, sizeof(uint32_t));
     memcpy(&ssrc, (uint8_t*) iov.iov_base + 8, sizeof(uint32_t));
+
+    pa_memblock_release(chunk->memblock);
 
     header = ntohl(header);
     *rtp_tstamp = ntohl(*rtp_tstamp);
