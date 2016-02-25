@@ -1124,13 +1124,21 @@ libprotocol_esound_la_LIBADD = $(AM_LIBADD) libpulsecore-@PA_MAJORMINOR@.la libp
 endif
 
 librtp_la_SOURCES = \
-		modules/rtp/rtp.c modules/rtp/rtp.h \
+		modules/rtp/rtp-common.c modules/rtp/rtp.h \
 		modules/rtp/sdp.c modules/rtp/sdp.h \
 		modules/rtp/sap.c modules/rtp/sap.h \
 		modules/rtp/rtsp_client.c modules/rtp/rtsp_client.h \
 		modules/rtp/headerlist.c modules/rtp/headerlist.h
+librtp_la_CFLAGS = $(AM_CFLAGS)
 librtp_la_LDFLAGS = $(AM_LDFLAGS) $(AM_LIBLDFLAGS) -avoid-version
 librtp_la_LIBADD = $(AM_LIBADD) libpulsecore-@PA_MAJORMINOR@.la libpulsecommon-@PA_MAJORMINOR@.la libpulse.la
+if HAVE_GSTREAMER
+librtp_la_SOURCES += modules/rtp/rtp-gstreamer.c
+librtp_la_CFLAGS += $(GSTREAMER_CFLAGS)
+librtp_la_LIBADD += $(GSTREAMER_LIBS)
+else
+librtp_la_SOURCES += modules/rtp/rtp-native.c
+endif
 
 libraop_la_SOURCES = \
         modules/raop/raop_client.c modules/raop/raop_client.h \
@@ -2067,12 +2075,12 @@ endif
 module_rtp_send_la_SOURCES = modules/rtp/module-rtp-send.c
 module_rtp_send_la_LDFLAGS = $(MODULE_LDFLAGS)
 module_rtp_send_la_LIBADD = $(MODULE_LIBADD) librtp.la
-module_rtp_send_la_CFLAGS = $(AM_CFLAGS)
+module_rtp_send_la_CFLAGS = $(AM_CFLAGS) $(GSTREAMER_CFLAGS)
 
 module_rtp_recv_la_SOURCES = modules/rtp/module-rtp-recv.c
 module_rtp_recv_la_LDFLAGS = $(MODULE_LDFLAGS)
 module_rtp_recv_la_LIBADD = $(MODULE_LIBADD) librtp.la
-module_rtp_recv_la_CFLAGS = $(AM_CFLAGS)
+module_rtp_recv_la_CFLAGS = $(AM_CFLAGS) $(GSTREAMER_CFLAGS)
 
 # JACK
 
@@ -2185,7 +2193,7 @@ module_bluez5_device_la_CFLAGS = $(AM_CFLAGS) $(SBC_CFLAGS)
 module_raop_sink_la_SOURCES = modules/raop/module-raop-sink.c
 module_raop_sink_la_LDFLAGS = $(MODULE_LDFLAGS)
 module_raop_sink_la_LIBADD = $(MODULE_LIBADD) librtp.la libraop.la
-module_raop_sink_la_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/src/modules/rtp
+module_raop_sink_la_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/src/modules/rtp $(GSTREAMER_CFLAGS)
 
 module_raop_discover_la_SOURCES = modules/raop/module-raop-discover.c
 module_raop_discover_la_LDFLAGS = $(MODULE_LDFLAGS)
