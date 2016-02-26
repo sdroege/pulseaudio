@@ -80,18 +80,17 @@ struct pollfd *pa_rtpoll_item_get_pollfd(pa_rtpoll_item *i, unsigned *n_fds);
 /* Set the callback that shall be called when there's time to do some work: If the
  * callback returns a value > 0, the poll is skipped and the next
  * iteration of the loop will start immediately. */
-void pa_rtpoll_item_set_work_callback(pa_rtpoll_item *i, int (*work_cb)(pa_rtpoll_item *i));
+void pa_rtpoll_item_set_work_callback(pa_rtpoll_item *i, int (*work_cb)(pa_rtpoll_item *i), void *userdata);
 
 /* Set the callback that shall be called immediately before entering
  * the sleeping poll: If the callback returns a value > 0, the poll is
  * skipped and the next iteration of the loop will start immediately. */
-void pa_rtpoll_item_set_before_callback(pa_rtpoll_item *i, int (*before_cb)(pa_rtpoll_item *i));
+void pa_rtpoll_item_set_before_callback(pa_rtpoll_item *i, int (*before_cb)(pa_rtpoll_item *i), void *userdata);
 
 /* Set the callback that shall be called immediately after having
  * entered the sleeping poll */
-void pa_rtpoll_item_set_after_callback(pa_rtpoll_item *i, void (*after_cb)(pa_rtpoll_item *i));
+void pa_rtpoll_item_set_after_callback(pa_rtpoll_item *i, void (*after_cb)(pa_rtpoll_item *i), void *userdata);
 
-void pa_rtpoll_item_set_userdata(pa_rtpoll_item *i, void *userdata);
 void* pa_rtpoll_item_get_userdata(pa_rtpoll_item *i);
 
 pa_rtpoll_item *pa_rtpoll_item_new_fdsem(pa_rtpoll *p, pa_rtpoll_priority_t prio, pa_fdsem *s);

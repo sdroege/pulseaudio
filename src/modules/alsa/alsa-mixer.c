@@ -547,8 +547,7 @@ int pa_alsa_set_mixer_rtpoll(struct pa_alsa_mixer_pdata *pd, snd_mixer_t *mixer,
     pd->poll_item = i;
     pd->mixer = mixer;
 
-    pa_rtpoll_item_set_userdata(i, pd);
-    pa_rtpoll_item_set_work_callback(i, rtpoll_work_cb);
+    pa_rtpoll_item_set_work_callback(i, rtpoll_work_cb, pd);
 
     return 0;
 }
